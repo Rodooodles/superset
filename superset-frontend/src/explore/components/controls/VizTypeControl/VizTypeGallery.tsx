@@ -441,6 +441,12 @@ export default function VizTypeGallery(props: VizTypeGalleryProps) {
   const searchInputRef = useRef<HTMLInputElement>();
   const [searchInputValue, setSearchInputValue] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(true);
+
+  useEffect(() => {
+    // Auto-focus the search input when the component mounts
+    searchInputRef.current?.focus();
+  }, []);
+
   const isActivelySearching = isSearchFocused && !!searchInputValue;
 
   const selectedVizMetadata: ChartMetadata | null = selectedViz
