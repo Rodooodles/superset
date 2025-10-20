@@ -34,7 +34,7 @@ export const renderResultCell = ({
   cellData,
   getCellContent,
   columnKey,
-  allowHTML = true,
+  allowHTML = false,
 }: Params) => {
   const cellNode =
     getCellContent?.({ cellData, columnKey }) ?? String(cellData);
