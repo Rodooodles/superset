@@ -126,3 +126,9 @@ docker/*local*
 test-report.html
 superset/static/stats/statistics.html
 .aider*
+
+# AI helper files
+# memory/project context
+memory/
+# commands/prompts
+.cursor/

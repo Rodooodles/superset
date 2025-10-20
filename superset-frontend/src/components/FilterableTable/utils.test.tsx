@@ -76,3 +76,83 @@ test('should transform cell data by getCellContent for the regular text', () => 
   );
   expect(container).toHaveTextContent('regular_text:a');
 });
+
+test('should render angle brackets as plain text when allowHTML is false', () => {
+  const { container } = render(
+    <>
+      {renderResultCell({
+        cellData: '<div>test</div>',
+        columnKey: 'a',
+        allowHTML: false,
+      })}
+    </>,
+  );
+  expect(container).toHaveTextContent('<div>test</div>');
+});
+
+test('should render custom tags as plain text when allowHTML is false', () => {
+  const { container } = render(
+    <>
+      {renderResultCell({
+        cellData: '<custom>value</custom>',
+        columnKey: 'a',
+        allowHTML: false,
+      })}
+    </>,
+  );
+  expect(container).toHaveTextContent('<custom>value</custom>');
+});
+
+test('should render empty tags as plain text when allowHTML is false', () => {
+  const { container } = render(
+    <>
+      {renderResultCell({
+        cellData: '<test>',
+        columnKey: 'a',
+        allowHTML: false,
+      })}
+    </>,
+  );
+  expect(container).toHaveTextContent('<test>');
+});
+
+test('should render comparison operators when allowHTML is false', () => {
+  const { container } = render(
+    <>
+      {renderResultCell({
+        cellData: 'Price: 5 < x < 10',
+        columnKey: 'a',
+        allowHTML: false,
+      })}
+    </>,
+  );
+  expect(container).toHaveTextContent('Price: 5 < x < 10');
+});
+
+test('should render HTML when allowHTML is explicitly true', () => {
+  const { container } = render(
+    <>
+      {renderResultCell({
+        cellData: '<div>test</div>',
+        columnKey: 'a',
+        allowHTML: true,
+      })}
+    </>,
+  );
+  // Should render as HTML, not plain text
+  const span = container.querySelector('.safe-html-wrapper');
+  expect(span).toBeInTheDocument();
+});
+
+test('should default to allowHTML false', () => {
+  const { container } = render(
+    <>
+      {renderResultCell({
+        cellData: '<div>test</div>',
+        columnKey: 'a',
+        // allowHTML not provided - should default to false
+      })}
+    </>,
+  );
+  expect(container).toHaveTextContent('<div>test</div>');
+});
