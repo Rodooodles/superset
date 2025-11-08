@@ -126,3 +126,6 @@ docker/*local*
 test-report.html
 superset/static/stats/statistics.html
 .aider*
+
+#AI folder for local development context
+memory/
