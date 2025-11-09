@@ -73,6 +73,7 @@ class QueryObjectFactory:  # pylint: disable=too-few-public-methods
         )
         kwargs["from_dttm"] = from_dttm
         kwargs["to_dttm"] = to_dttm
+        
         return QueryObject(
             datasource=datasource_model_instance,
             extras=extras,

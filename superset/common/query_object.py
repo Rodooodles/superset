@@ -91,6 +91,7 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
     granularity: str | None
     inner_from_dttm: datetime | None
     inner_to_dttm: datetime | None
+    is_percent_totals_query: bool
     is_rowcount: bool
     is_timeseries: bool
     metrics: list[Metric] | None
@@ -119,6 +120,7 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
         extras: dict[str, Any] | None = None,
         filters: list[QueryObjectFilterClause] | None = None,
         granularity: str | None = None,
+        is_percent_totals_query: bool = False,
         is_rowcount: bool = False,
         is_timeseries: bool | None = None,
         metrics: list[Metric] | None = None,
@@ -142,6 +144,7 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
         self.extras = extras or {}
         self.filter = filters or []
         self.granularity = granularity
+        self.is_percent_totals_query = is_percent_totals_query
         self.is_rowcount = is_rowcount
         self._set_is_timeseries(is_timeseries)
         self._set_metrics(metrics)
@@ -423,11 +426,15 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
 
         return md5_sha_from_dict(cache_dict, default=json_int_dttm_ser, ignore_nan=True)
 
-    def exec_post_processing(self, df: DataFrame) -> DataFrame:
+    def exec_post_processing(
+        self, df: DataFrame, totals: dict[str, float] | None = None
+    ) -> DataFrame:
         """
         Perform post processing operations on DataFrame.
 
         :param df: DataFrame returned from database model.
+        :param totals: Optional dictionary mapping column names to their totals.
+                       Used for contribution calculations with full dataset totals.
         :return: new DataFrame to which all post processing operations have been
                  applied
         :raises QueryObjectValidationError: If the post processing operation
@@ -449,5 +456,11 @@ class QueryObject:  # pylint: disable=too-many-instance-attributes
                         )
                     )
                 options = post_process.get("options", {})
+                # If this is a contribution operation and totals are provided, add them to options
+                if operation == "contribution":
+                    # Remove frontend-specific flag that backend doesn't understand
+                    options.pop("use_full_dataset_totals", None)
+                    if totals:
+                        options["totals"] = totals
                 df = getattr(pandas_postprocessing, operation)(df, **options)
             return df
