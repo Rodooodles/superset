@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 from typing import Any
 
@@ -26,6 +27,8 @@ from pandas import DataFrame, MultiIndex
 from superset.exceptions import InvalidPostProcessingError
 from superset.utils.core import PostProcessingContributionOrientation
 from superset.utils.pandas_postprocessing.utils import validate_column_args
+
+logger = logging.getLogger(__name__)
 
 
 @validate_column_args("columns")
@@ -37,6 +40,7 @@ def contribution(
     columns: list[str] | None = None,
     time_shifts: list[str] | None = None,
     rename_columns: list[str] | None = None,
+    totals: dict[str, float] | None = None,
 ) -> DataFrame:
     """
     Calculate cell contribution to row/column total for numeric columns.
@@ -52,6 +56,9 @@ def contribution(
     :param rename_columns: The new labels for the calculated contribution columns.
                            The original columns will not be removed.
     :param orientation: calculate by dividing cell with row/column total
+    :param totals: Optional dictionary mapping column names to their totals.
+                  When provided and orientation is COLUMN, uses these totals
+                  instead of calculating from visible rows.
     :return: DataFrame with contributions.
     """
     contribution_df = df.copy()
@@ -82,9 +89,21 @@ def contribution(
     numeric_df_view = numeric_df[actual_columns]
 
     if orientation == PostProcessingContributionOrientation.COLUMN:
-        numeric_df_view = numeric_df_view / numeric_df_view.values.sum(
-            axis=0, keepdims=True
-        )
+        if totals:
+            # Use provided totals from full dataset instead of calculating from visible rows
+            for i, col in enumerate(actual_columns):
+                if col in totals and totals[col] != 0:
+                    numeric_df_view.iloc[:, i] = (
+                        numeric_df_view.iloc[:, i] / totals[col]
+                    )
+                else:
+                    # If total is 0 or column not in totals, set to 0
+                    numeric_df_view.iloc[:, i] = 0
+        else:
+            # Default behavior: calculate from visible rows
+            numeric_df_view = numeric_df_view / numeric_df_view.values.sum(
+                axis=0, keepdims=True
+            )
         contribution_df[rename_columns] = numeric_df_view
         return contribution_df
 

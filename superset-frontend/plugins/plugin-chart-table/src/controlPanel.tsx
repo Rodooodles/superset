@@ -299,6 +299,29 @@ const config: ControlPanelConfig = {
             config: percentMetricsControl,
           },
         ],
+        [
+          {
+            name: 'percent_metric_calculation_mode',
+            config: {
+              type: 'SelectControl',
+              label: t('Percentage metric calculation'),
+              description: t(
+                'Choose how percentage metrics are calculated. ' +
+                  '"Row limit" calculates percentages from visible rows only. ' +
+                  '"All records" calculates percentages from the entire dataset.',
+              ),
+              default: 'row_limit',
+              choices: [
+                ['row_limit', t('Row limit')],
+                ['all_records', t('All records')],
+              ],
+              visibility: ({ controls }: ControlPanelsContainerProps) =>
+                isAggMode({ controls }) &&
+                ensureIsArray(controls?.percent_metrics?.value).length > 0,
+              resetOnHide: false,
+            },
+          },
+        ],
         ['adhoc_filters'],
         [
           {

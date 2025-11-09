@@ -118,6 +118,9 @@ export interface QueryObject
   /** Should the rowcount of the query be fetched */
   is_rowcount?: boolean;
 
+  /** Flag to identify auxiliary query for percentage totals calculation */
+  is_percent_totals_query?: boolean;
+
   /** Free-form HAVING SQL, multiple clauses are concatenated by AND */
   having?: string;
 

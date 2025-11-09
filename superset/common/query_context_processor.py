@@ -284,7 +284,20 @@ class QueryContextProcessor:
 
             # Re-raising QueryObjectValidationError
             try:
-                df = query_object.exec_post_processing(df)
+                # Check if post-processing needs totals from full dataset
+                totals = None
+                for post_process in query_object.post_processing or []:
+                    if (
+                        post_process.get("operation") == "contribution"
+                        and post_process.get("options", {}).get(
+                            "use_full_dataset_totals"
+                        )
+                    ):
+                        # Find and execute auxiliary query to get totals
+                        totals = self._get_full_dataset_totals(query_object)
+                        break
+
+                df = query_object.exec_post_processing(df, totals)
             except InvalidPostProcessingError as ex:
                 raise QueryObjectValidationError(ex.message) from ex
 
@@ -293,6 +306,95 @@ class QueryContextProcessor:
         result.from_dttm = query_object.from_dttm
         result.to_dttm = query_object.to_dttm
         return result
+
+    def _get_full_dataset_totals(
+        self, query_object: QueryObject
+    ) -> dict[str, float] | None:
+        """
+        Find and execute auxiliary query to get full dataset totals for percentage calculations.
+
+        :param query_object: The main query object that needs totals
+        :return: Dictionary mapping metric labels to their totals, or None if not found
+        """
+        # Get the percentage metric labels from the contribution operation
+        # These are the columns that the contribution function will use
+        percent_metric_labels = None
+        for post_process in query_object.post_processing or []:
+            if post_process.get("operation") == "contribution":
+                percent_metric_labels = post_process.get("options", {}).get("columns", [])
+                break
+        
+        if not percent_metric_labels:
+            return None
+        
+        # Find auxiliary query: one with no columns, no groupby, percentage metrics only,
+        # no post-processing, and marked as percentage totals query
+        for aux_query in self._query_context.queries:
+            if aux_query is query_object:
+                continue
+            
+            # Check if this looks like the percentage totals auxiliary query
+            # Note: aux_query.metrics should only contain percentage metrics
+            if (
+                not aux_query.columns
+                and not aux_query.post_processing
+                and aux_query.filter == query_object.filter
+                and aux_query.is_percent_totals_query
+            ):
+                # Execute the auxiliary query to get totals
+                try:
+                    aux_result = self.get_query_result(aux_query)
+                    
+                    if not aux_result.df.empty:
+                        # Get normalized metric names from auxiliary query
+                        # These should match the DataFrame column names
+                        aux_metric_names = get_metric_names(aux_query.metrics)
+                        
+                        # Extract totals from the first row (should be only one row)
+                        # Map DataFrame columns to metric names by position
+                        # Since auxiliary query has no groupby, DataFrame should only have metric columns
+                        totals = {}
+                        df_columns = list(aux_result.df.columns)
+                        
+                        # Build a mapping from DataFrame columns to metric names
+                        # The DataFrame columns should match the normalized metric names
+                        for i, metric_name in enumerate(aux_metric_names):
+                            if i < len(df_columns):
+                                col = df_columns[i]
+                                if pd.api.types.is_numeric_dtype(aux_result.df[col]):
+                                    value = aux_result.df[col].iloc[0]
+                                    if pd.notna(value):
+                                        # Use the metric name as key (should match percent_metric_labels)
+                                        totals[metric_name] = float(value)
+                        
+                        # Also try direct name matching as fallback (in case order differs)
+                        for col in df_columns:
+                            if col in aux_metric_names and col not in totals:
+                                if pd.api.types.is_numeric_dtype(aux_result.df[col]):
+                                    value = aux_result.df[col].iloc[0]
+                                    if pd.notna(value):
+                                        totals[col] = float(value)
+                        
+                        # Filter totals to only include the percentage metrics we need
+                        # This ensures we only return totals for metrics used in contribution
+                        filtered_totals = {
+                            key: value
+                            for key, value in totals.items()
+                            if key in percent_metric_labels
+                        }
+                        
+                        return filtered_totals if filtered_totals else None
+                    else:
+                        return None
+                except Exception:
+                    # If auxiliary query fails, return None (fall back to default behavior)
+                    logger.warning(
+                        "Failed to get full dataset totals from auxiliary query",
+                        exc_info=True,
+                    )
+                    return None
+        
+        return None
 
     def normalize_df(self, df: pd.DataFrame, query_object: QueryObject) -> pd.DataFrame:
         # todo: should support "python_date_format" and "get_column" in each datasource

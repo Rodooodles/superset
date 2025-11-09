@@ -1354,6 +1354,12 @@ class ChartDataQueryObjectSchema(Schema):
         metadata={"description": "Should the rowcount of the actual query be returned"},
         allow_none=True,
     )
+    is_percent_totals_query = fields.Boolean(
+        metadata={
+            "description": "Flag to identify auxiliary query for percentage totals calculation"
+        },
+        allow_none=True,
+    )
     time_offsets = fields.List(
         fields.String(),
         allow_none=True,

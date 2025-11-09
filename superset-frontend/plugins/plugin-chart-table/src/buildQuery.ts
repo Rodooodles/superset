@@ -58,6 +58,7 @@ const buildQuery: BuildQuery<TableChartFormData> = (
 ) => {
   const {
     percent_metrics: percentMetrics,
+    percent_metric_calculation_mode: percentMetricCalculationMode = 'row_limit',
     order_desc: orderDesc = false,
     extra_form_data,
   } = formData;
@@ -145,12 +146,15 @@ const buildQuery: BuildQuery<TableChartFormData> = (
           metrics.concat(percentMetrics),
           getMetricLabel,
         );
+        const useFullDatasetTotals =
+          percentMetricCalculationMode === 'all_records';
         postProcessing = [
           {
             operation: 'contribution',
             options: {
               columns: percentMetricLabels,
               rename_columns: percentMetricLabels.map(x => `%${x}`),
+              use_full_dataset_totals: useFullDatasetTotals,
             },
           },
         ];
@@ -246,6 +250,27 @@ const buildQuery: BuildQuery<TableChartFormData> = (
         post_processing: [],
         order_desc: undefined, // we don't need orderby stuff here,
         orderby: undefined, // because this query will be used for get total aggregation.
+      });
+    }
+
+    // Add auxiliary query for full dataset totals when percent metric calculation mode is 'all_records'
+    if (
+      percentMetrics &&
+      percentMetrics.length > 0 &&
+      percentMetricCalculationMode === 'all_records' &&
+      queryMode === QueryMode.Aggregate
+    ) {
+      extraQueries.push({
+        ...queryObject,
+        metrics: percentMetrics, // Only include percentage metrics, not all metrics
+        columns: [],
+        row_limit: 0,
+        row_offset: 0,
+        post_processing: [],
+        order_desc: undefined,
+        orderby: undefined,
+        time_offsets: [],
+        is_percent_totals_query: true,
       });
     }
 
